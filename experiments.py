@@ -100,7 +100,7 @@ def configure_and_train(**input_dict):
 
 	# save the initial state and args, assumes folder exists
 	if not os.path.exists(save_dir):
-		os.mkdir(save_dir)
+		os.makedirs(save_dir)
 	state = {'weights': net.state_dict(), 'optimizer': opt.state_dict()}
 	model_path = save_dir + '/{}_0.pyT'.format(model)
 	torch.save(state, model_path)
