@@ -6,58 +6,25 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-import models
 from torchvision import datasets, transforms
+import models
 from mappings import cnn2fc, cnn2lc
 from utils import get_id, get_data, accuracy
 import pickle
 import sys
 import gc
 from math import log
-from main import evaluate, train
-
-
-
-t_init = time.time()
-
-# parser = argparse.ArgumentParser()
-
-dataset = 'cifar10'
-path = 'data'
-data_size = 0
-
-model = 'skinnyprime'
-convert_to = 'nil'
-
-epochs = 100
-bs_train = 250
-bs_eval = 1000
-mom = 0
-wd = 0
-
-seed = 0
-
-torch.autograd.detect_anomaly()
-
-# parser.add_argument('--seed', default=0, type=int)
-# parser.add_argument('--double', action='store_true', default=False)
-# parser.add_argument('--no_cuda', action='store_true', default=False)
-# parser.add_argument('--load_opt', action='store_true', default=False)
-
-
-use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
-torch.manual_seed(seed)
-
-train_loader, tr_loader_eval, te_loader_eval, num_classes = get_data(dataset, path, bs_train, bs_eval, data_size)
+from main import train
 
 
 
 def run_all_experiments():
+
 	print("Training CNN")
 	train_cnn()
 
-	n_splits = 20
+	epochs = param_dict['epochs']
+	n_splits = param_dict['n_splits']
 	splits = np.unique(np.logspace(0, np.log10(epochs), n_splits).astype(int))
 
 	for i, split in enumerate(splits):
@@ -66,27 +33,25 @@ def run_all_experiments():
 
 
 def train_cnn():
-	convert_to = 'nil'
-	load_model = ''
-	save_dir = 'results'
-
-	lr = 0.1
-	n_saves = 100
 
 	model_class = getattr(models, model)
 	net = model_class(num_classes=num_classes).to(device)
 
-	configure_and_train(save_dir, model, net, lr, mom, wd, device, epochs, n_saves, True)
+	input_dict = param_dict.copy()
+	input_dict['net'] = net
+	input_dict['is_tied'] = True
+	input_dict['n_saves'] = 100
+	input_dict['model'] = model
+	input_dict['save_dir'] = save_dir
+	input_dict['lr'] = input_dict['cnn_lr']
+
+	configure_and_train(**input_dict)
 
 
 def train_untied_nn(split_number):
 	convert_to = 'lc'
-	save_dir = 'results'
 	load_model = '{}/{}_{}.pyT'.format(save_dir, model, split_number)
 	untied_save_dir = '{}/{}_{}_{}'.format(save_dir, model, convert_to, split_number)
-
-	lr = 0.01
-	n_saves = 20
 
 	state = torch.load(load_model) # gives the state_dict and opt
 	split_model = load_model.split("/")[-1].split("_")[0] # this is by our saving convention
@@ -95,16 +60,26 @@ def train_untied_nn(split_number):
 	net.load_state_dict(state['weights'])
 
 	net = cnn2lc(net).to(device)
-	split_model += '_lc_version' 
+	split_model += '_lc_version'
 
-	configure_and_train(untied_save_dir, split_model, net, lr, mom, wd, device, epochs, n_saves, False)
+	input_dict = param_dict.copy()
+	input_dict['net'] = net
+	input_dict['is_tied'] = False
+	input_dict['n_saves'] = 20
+	input_dict['model'] = split_model
+	input_dict['save_dir'] = untied_save_dir
+	input_dict['lr'] = input_dict['lc_lr']
+
+	configure_and_train(**input_dict)
 
 
+def configure_and_train(**input_dict):
+	save_dir, model, net, lr, epochs, n_saves, is_tied = [input_dict.pop(key) for key in
+	('save_dir', 'model', 'net', 'lr', 'epochs', 'n_saves', 'is_tied')]
 
-def configure_and_train(save_dir, model, net, lr, mom, wd, device, epochs, n_saves, is_tied):
 	opt = optim.SGD(
 		net.parameters(),
-		lr=lr, 
+		lr=lr,
 		momentum=mom,
 		weight_decay=wd
 		)
@@ -197,13 +172,13 @@ def configure_and_train(save_dir, model, net, lr, mom, wd, device, epochs, n_sav
 			evaluation_history['log_prod_norm'].append(log_prod_norm)
 			evaluation_history['norm_margin_normalized'].append(norm_margin_normalized)
 			evaluation_history['log_prod_norm_normalized'].append(log_prod_norm_normalized)
-				
+
 			time_mem_history['eval'].append((epoch + 1, '{:3f}'.format(time.time() - t)))
 
 			if device == 'cuda':
-				time_mem_history['mem'].append((torch.cuda.memory_allocated() / (1024**2), 
+				time_mem_history['mem'].append((torch.cuda.memory_allocated() / (1024**2),
 											torch.cuda.memory_cached() / (1024**2)))
-			
+
 			state = {'weights': net.state_dict(), 'optimizer': opt.state_dict()}
 			model_path = save_dir + '/{}_{}.pyT'.format(model, epoch + 1)
 			torch.save(state, model_path)
@@ -218,12 +193,13 @@ def weight_norm(net, log_prod=False):
 	norm = 0
 	for (name, param) in params:
 		if name.endswith("weight"):
-			layer_norm = np.linalg.norm(param.detach().numpy(), axis=None)**2
+			layer_norm = np.linalg.norm(param.cpu().data.numpy(), axis=None)**2
 			if log_prod:
 				norm += log(layer_norm)
 			else:
 				norm += layer_norm
 	return norm
+
 
 def weight_norm_tied(net, log_prod=False):
 	# state = torch.load(model_path) # gives the state_dict and opt
@@ -237,7 +213,7 @@ def weight_norm_tied(net, log_prod=False):
 	for (name, param), (_, reference_param) in zip(params, reference_params):
 		if name.endswith("weight"):
 			scale = reference_param.nelement() / param.nelement()
-			layer_norm = np.linalg.norm(param.detach().numpy(), axis=None)**2 * scale
+			layer_norm = np.linalg.norm(param.cpu().data.numpy(), axis=None)**2 * scale
 			if log_prod:
 				norm += log(layer_norm)
 			else:
@@ -245,7 +221,7 @@ def weight_norm_tied(net, log_prod=False):
 	return norm
 
 
-def compute_margins(net, is_estimate=False, to_plot=False):
+def compute_margins(net, is_estimate=False):
 	net.eval()
 	all_margins = None
 	with torch.no_grad(): # alt. just call backward to free memory
@@ -266,18 +242,15 @@ def compute_margins(net, is_estimate=False, to_plot=False):
 			margin = correct_out - top_incorrect
 
 			if is_estimate:
-				return margin.detach().numpy()
+				return margin.cpu().data.numpy()
 
 			if all_margins is None:
-				all_margins = margin.detach().numpy()
+				all_margins = margin.cpu().data.numpy()
 			else:
-				all_margins = np.concatenate((all_margins, margin.detach().numpy()))
-
-		if to_plot:
-			plt.hist(all_margins, bins=100)
-			plt.show()
+				all_margins = np.concatenate((all_margins, margin.cpu().data.numpy()))
 
 		return all_margins
+
 
 def evaluate(eval_loader, net, crit, device):
 	net.eval()
@@ -300,9 +273,9 @@ def evaluate(eval_loader, net, crit, device):
 			margin = correct_out - top_incorrect
 
 			if all_margins is None:
-				all_margins = margin.detach().numpy()
+				all_margins = margin.cpu().data.numpy()
 			else:
-				all_margins = np.concatenate((all_margins, margin.detach().numpy()))
+				all_margins = np.concatenate((all_margins, margin.cpu().data.numpy()))
 			
 			total_size += bs
 			total_loss += loss * bs
@@ -311,5 +284,43 @@ def evaluate(eval_loader, net, crit, device):
 	return [total_loss / total_size, total_acc / total_size, np.average(all_margins)] 
 
 
+if __name__ == "__main__":
 
-run_all_experiments()
+	t_init = time.time()
+
+	# param_dict = dict(
+	# epochs= 1,
+	# n_splits = 1,
+	# cnn_lr = 0.1,
+	# lc_lr = 0.01,
+	# )
+
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--epochs', default= 100, type=int)
+	parser.add_argument('--n-splits', default= 20, type = int)
+	parser.add_argument('--cnn-lr', default= 0.1, type=float)
+	parser.add_argument('--lc-lr', default= 0.01, type=float)
+
+	param_dict = vars(parser.parse_args())
+
+	# Static global variables
+	save_dir = './results/' + '_'.join(["{}={}".format(*item) for item in param_dict.items()])
+	dataset = 'cifar10'
+	model = 'skinnyprime'
+	path = 'data'
+	load_model = ''
+	data_size = 0
+	mom = 0
+	wd = 0
+	bs_train = 250
+	bs_eval = 1000
+	seed = 0
+
+	# torch.autograd.detect_anomaly()
+
+	use_cuda = torch.cuda.is_available()
+	device = torch.device('cuda' if use_cuda else 'cpu')
+	torch.manual_seed(seed)
+
+	train_loader, tr_loader_eval, te_loader_eval, num_classes = get_data(dataset, path, bs_train, bs_eval, data_size)
+	run_all_experiments()
