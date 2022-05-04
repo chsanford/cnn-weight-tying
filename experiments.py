@@ -32,6 +32,27 @@ def run_all_experiments():
 		train_untied_nn(split)
 
 
+def load_network(file):
+	# file = <file name>.pyT
+
+	if not file.endswith(".pyT"):
+		raise ValueError('file name should end with .pyT')
+
+	# model = file.split("_")[0]
+	model_class = getattr(models, model)
+	net = model_class(num_classes=num_classes).to(device)
+	is_tied = True
+
+	if "_lc_" in file:
+		is_tied = False
+		net = cnn2lc(net).to(device)
+
+	state = torch.load(file, map_location=device)  # gives the state_dict and opt
+	net.load_state_dict(state['weights'])
+
+	return (net, is_tied)
+
+
 def train_cnn():
 
 	model_class = getattr(models, model)
@@ -53,7 +74,7 @@ def train_untied_nn(split_number):
 	load_model = '{}/{}_{}.pyT'.format(save_dir, model, split_number)
 	untied_save_dir = '{}/{}_{}_{}'.format(save_dir, model, convert_to, split_number)
 
-	state = torch.load(load_model) # gives the state_dict and opt
+	state = torch.load(load_model, map_location=device) # gives the state_dict and opt
 	split_model = load_model.split("/")[-1].split("_")[0] # this is by our saving convention
 	model_class = getattr(models, split_model)
 	net = model_class(num_classes=num_classes).to(device)
@@ -281,12 +302,11 @@ def evaluate(eval_loader, net, crit, device):
 			total_loss += loss * bs
 			total_acc += prec * bs
 			
-	return [total_loss / total_size, total_acc / total_size, np.average(all_margins)] 
+	return [total_loss / total_size, total_acc / total_size, np.average(all_margins)]
+
 
 
 if __name__ == "__main__":
-
-	t_init = time.time()
 
 	# param_dict = dict(
 	# epochs= 1,
@@ -297,18 +317,20 @@ if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--epochs', default= 100, type=int)
-	parser.add_argument('--n-splits', default= 20, type = int)
-	parser.add_argument('--cnn-lr', default= 0.1, type=float)
-	parser.add_argument('--lc-lr', default= 0.01, type=float)
+	parser.add_argument('--n_splits', default= 20, type = int)
+	parser.add_argument('--cnn_lr', default= 0.1, type=float)
+	parser.add_argument('--lc_lr', default= 0.01, type=float)
+	parser.add_argument('--exec', default=0, type=int, choices=[0, 1])
 
 	param_dict = vars(parser.parse_args())
 
+	t_init = time.time()
+
 	# Static global variables
-	save_dir = './results/' + '_'.join(["{}={}".format(*item) for item in param_dict.items()])
+	save_dir = './results/' + '-'.join(["{}={}".format(*item) for item in param_dict.items()])
 	dataset = 'cifar10'
 	model = 'skinnyprime'
 	path = 'data'
-	load_model = ''
 	data_size = 0
 	mom = 0
 	wd = 0
@@ -317,10 +339,11 @@ if __name__ == "__main__":
 	seed = 0
 
 	# torch.autograd.detect_anomaly()
-
 	use_cuda = torch.cuda.is_available()
 	device = torch.device('cuda' if use_cuda else 'cpu')
 	torch.manual_seed(seed)
 
 	train_loader, tr_loader_eval, te_loader_eval, num_classes = get_data(dataset, path, bs_train, bs_eval, data_size)
-	run_all_experiments()
+
+	if param_dict['exec']:
+		run_all_experiments()
