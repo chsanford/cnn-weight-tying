@@ -13,7 +13,7 @@
 
 module load anaconda
 module load cuda11.1/toolkit
-source activate nn
+source activate nnvim
 unset XDG_RUNTIME_DIR
 
 CNNlr=${1:-0.1}

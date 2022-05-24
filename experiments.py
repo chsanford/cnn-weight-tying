@@ -177,7 +177,7 @@ def configure_and_train(**input_dict):
 				norm = weight_norm(net, log_prod=False)
 				log_prod_norm = weight_norm(net, log_prod=True)
 			if margin > 0:
-				norm_margin_normalized = norm / margin**(1/3)
+				norm_margin_normalized = norm / margin
 				log_prod_norm_normalized = log_prod_norm - log(margin)
 			else:
 				norm_margin_normalized = -1
@@ -210,15 +210,16 @@ def configure_and_train(**input_dict):
 
 
 def weight_norm(net, log_prod=False):
+	# Produces sum of weight norms squred or the product of layer norms
 	params = net.named_parameters()
 	norm = 0
 	for (name, param) in params:
 		if name.endswith("weight"):
-			layer_norm = np.linalg.norm(param.cpu().data.numpy(), axis=None)**2
+			layer_norm = np.linalg.norm(param.cpu().data.numpy(), axis=None)
 			if log_prod:
 				norm += log(layer_norm)
 			else:
-				norm += layer_norm
+				norm += layer_norm ** 2
 	return norm
 
 
@@ -305,15 +306,18 @@ def evaluate(eval_loader, net, crit, device):
 	return [total_loss / total_size, total_acc / total_size, np.average(all_margins)]
 
 
+def params_per_layer(net):
+	# Helper function to determine number of trainable parameters within each layer
+	from operator import mul
+	from functools import reduce
+	params = list(net.parameters())
+	n = len(params)
+	weights = params[0:n:2]
+	biases = params[1:n:2]
+	return list(map(lambda x: reduce(mul, x[0].size()) + int(x[1].size()[0]), zip(weights, biases)))
+
 
 if __name__ == "__main__":
-
-	# param_dict = dict(
-	# epochs= 1,
-	# n_splits = 1,
-	# cnn_lr = 0.1,
-	# lc_lr = 0.01,
-	# )
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--epochs', default= 100, type=int)
@@ -338,7 +342,6 @@ if __name__ == "__main__":
 	bs_eval = 1000
 	seed = 0
 
-	# torch.autograd.detect_anomaly()
 	use_cuda = torch.cuda.is_available()
 	device = torch.device('cuda' if use_cuda else 'cpu')
 	torch.manual_seed(seed)

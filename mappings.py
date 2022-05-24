@@ -131,6 +131,9 @@ class LocallyConnected2d(nn.Module):
         self.kernel_size = _pair(kernel_size)
         self.stride = _pair(stride)
 
+    def __repr__(self):
+        return 'LocallyConnected2d(shape=[{}])'.format(str(self.weight.size()))
+
     def forward(self, x):
         _, c, h, w = x.size()
         kh, kw = self.kernel_size
