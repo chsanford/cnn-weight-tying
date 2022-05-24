@@ -26,8 +26,8 @@ Python files can be used to generate the experiments. It stores networks weights
 |------------|----------------|-----------------|
 | epochs     | Number of epochs| 150 |
 | n_splits   | number of splits used to produce (almost) logarithmically spaced epochs for translation from CNN to eLCN| 20 |
-| cnn_lr     | CNN learning rate| 0.1 |
-| lcn_lr     | LCN learning rate| 0.005|
+| cnn_lr     | CNN learning rate| 0.05 |
+| lcn_lr     | LCN learning rate| 0.01|
 | exec       | Execution flag   | 1   |
 
 To run our experiments in parallel (with GPUs) on a Slurm based cluster use:
