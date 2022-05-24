@@ -15,8 +15,8 @@ To install requirements :
 Our results were obtained in Python 3.9.7 environment.
 
 # Generate Results
-Python files can be used to generate the experiments. It stores networks weights at designated epochs into a ```./results``` directory structured as the following:
-- CNN weights at every epoch
+Python files can be used to generate the experiments. It stores networks weights at designated epochs into ```./results``` directory structured as the following:
+- CNN weights at every epoch are stored in `skinnyprime_<epoch>.pyT`.
 - LCN detaching from CNN at certain epochs are stored under 'skinnyprime_lc_version_<split epoch>' directory.  
 - Relevant historical data are stored in `evaluation-history.hist` at the end of training of each network.
 
