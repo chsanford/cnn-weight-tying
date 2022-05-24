@@ -12,7 +12,7 @@ We build on experiments from [DSBB19](https://arxiv.org/abs/1906.06766) to conve
 To install requirements :
 ```pip install -r requirements.txt```
 
-Our resutls were obtained in Python 3.9.7 environment.
+Our results were obtained in Python 3.9.7 environment.
 
 # Generate Results
 Python files can be used to generate the experiments. It stores networks weights at designated epochs into a ```./results``` directory structured as the following:
