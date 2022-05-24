@@ -5,7 +5,7 @@ This repository contains the official codebase of our --paper--.
 
 We build on experiments from [DSBB19](https://arxiv.org/abs/1906.06766) to convert a convolutional network (CNN) to its equivalent locally-connected network (eLCN), at different stages and provide evidence for low norm implicit bias of SGD.
 
-<embed src="CNN_vs_LCN_body.pdf" type="application/pdf"> 
+[embed]CNN_vs_LCN_body.pdf[/embed]
 
 # Requirements
 
