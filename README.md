@@ -1,9 +1,8 @@
-# Intrinsic dimensionality and generalization properties of the $\mathcal{R}$-norm implicit bias
+# Rnorm
 
-This repository contains the official codebase of our --paper--.
-
-
-We build on experiments from [DSBB19](https://arxiv.org/abs/1906.06766) to convert a convolutional network (CNN) to its equivalent locally-connected network (eLCN), at different stages and provide evidence for low norm implicit bias of SGD.
+Code for the experimental component of the paper "Intrinsic dimensionality and generalization properties of the $\mathcal{R}$-norm inductive bias" **TODO: Add arxiv link** by Clayton Sanford*, Navid Ardeshir*, and Daniel Hsu. 
+We repeat similar experiments to ["Finding the Needle in the Haystack with Convolutions: on the benefits of architectural bias"](https://arxiv.org/abs/1906.06766) by Stéphane d'Ascoli, Levent Sagun, Joan Bruna and Giulio Biroli to convert a convolutional network (CNN) to its equivalent locally-connected network (eLCN), at different stages and provide evidence for low norm implicit bias of SGD.
+Our repository borrows heavily from and adapts their code in [sdascoli/anarchitectural-search](https://github.com/sdascoli/anarchitectural-search).
 
 ![plot](CNN_vs_LCN_body.png)
 
